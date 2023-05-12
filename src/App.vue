@@ -1,46 +1,29 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref,computed } from 'vue'
+import axios from 'axios';
 
-const questions = ref([
-  {
-	question: 'What is Vue?',
-	answer: 0,
-	options: [
-		'A framework',
-		'A library',
-		'A type of hat'
-	],
-	selected: null
-  },
-  {
-	question: 'What is Vuex used for?',
-	answer: 2,
-	options: [
-		'Eating a delicious snack',
-		'Viewing things',
-		'State management'
-	],
-	selected: null
-  },
-  {
-	question: 'What is Vue Router?',
-	answer: 1,
-	options: [
-		'An ice cream maker',
-		'A routing library for Vue',
-		'Burger sauce'
-	],
-	selected: null
-  }
-])
+
+
+const diff = ref(true)
+let edd = 1
+let questions = ref([null])
+let easy = async (edd) => {
+	await axios.get(`https://opentdb.com/api.php?amount=10&category=18&${ edd !== 1 ? `difficulty=${ edd }` :''}&type=multiple`)
+		.then(r => {
+			questions.value = r.data.results
+
+		})
+		.catch(err => console.log(err))
+	diff.value = false
+}
+
 
 const quizCompleted = ref(false)
 const currentQuestion = ref(0)
 const score = computed(() => {
 	let value = 0
 	questions.value.map(q => {
-		if (q.selected != null && q.answer == q.selected) {
-			console.log('correct');
+		if(q.selected != null && q.correct_answer == q.selected) {
 			value++
 		}
 	})
@@ -50,6 +33,8 @@ const score = computed(() => {
 const getCurrentQuestion = computed(() => {
 	let question = questions.value[currentQuestion.value]
 	question.index = currentQuestion.value
+	question.incorrect_answers=[...question.incorrect_answers,question.correct_answer]
+	question.correct_answer = 3
 	return question
 })
 
@@ -59,11 +44,11 @@ const SetAnswer = (e) => {
 }
 
 const NextQuestion = () => {
-	if (currentQuestion.value < questions.value.length - 1) {
+	if(currentQuestion.value < questions.value.length - 1) {
 		currentQuestion.value++
 		return
 	}
-	
+
 	quizCompleted.value = true
 }
 </script>
@@ -71,57 +56,48 @@ const NextQuestion = () => {
 <template>
 	<main class="app">
 		<h1>The Quiz</h1>
-		
-		<section class="quiz" v-if="!quizCompleted">
+		<div class="diff" v-if="diff">
+			<form action="" method="get" @submit.prevent="easy(edd)">
+				<label for="" class="option2"> Select Difficulty: </label>
+				<select v-model="edd" name="" id="">
+					<option value="1" selected>Any Difficulty</option>
+					<option value="easy">Easy </option>
+					<option value="medium">Medium </option>
+					<option value="hard"> Hard</option>
+				</select>
+				<button type="submit"> start </button>
+			</form>
+		</div>
+		<section class="quiz" v-else-if="!quizCompleted">
 			<div class="quiz-info">
 				<span class="question">{{ getCurrentQuestion.question }}</span>
 				<span class="score">Score {{ score }}/{{ questions.length }}</span>
 			</div>
-			
-			<div class="options">
-				<label 
-					v-for="(option, index) in getCurrentQuestion.options" 
-					:key="'option' + index" 
-					:class="`option ${
-						getCurrentQuestion.selected == index 
-							? index == getCurrentQuestion.answer 
-								? 'correct' 
-								: 'wrong'
-							: ''
-					} ${
-						getCurrentQuestion.selected != null &&
+			<div class="incorrect_answers">
+				<label v-for="(option, index) in getCurrentQuestion.incorrect_answers" :key="'option' + index" :class="`option ${getCurrentQuestion.selected == index
+						? index == getCurrentQuestion.correct_answer
+							? 'correct'
+							: 'wrong'
+						: ''
+					} ${getCurrentQuestion.selected != null &&
 						index != getCurrentQuestion.selected
-							? 'disabled'
-							: ''
+						? 'disabled'
+						: ''
 					}`">
-					<input 
-						type="radio" 
-						:id="'option' + index" 
-						:name="getCurrentQuestion.index" 
-						:value="index" 
-						v-model="getCurrentQuestion.selected" 
-						:disabled="getCurrentQuestion.selected"
-						@change="SetAnswer" 
-					/>
+
+					<input type="radio" :id="'option' + index" :name="getCurrentQuestion.index" :value="index"
+						v-model="getCurrentQuestion.selected" :disabled="getCurrentQuestion.selected" @change="SetAnswer" />
 					<span>{{ option }}</span>
 				</label>
 			</div>
-			
-			<button 
-				@click="NextQuestion" 
-				:disabled="!getCurrentQuestion.selected">
-				{{ 
-					getCurrentQuestion.index == questions.length - 1 
-						? 'Finish' 
-						: getCurrentQuestion.selected == null
-							? 'Select an option'
-							: 'Next question'
-				}}
+			<button @click="NextQuestion" :disabled="!getCurrentQuestion.selected"> {{ getCurrentQuestion.index ==
+				questions.length - 1 ? 'Finish' : getCurrentQuestion.selected == null ? 'Select an option' : 'Next question' }}
 			</button>
 		</section>
-
 		<section v-else>
+			
 			<h2>You have finished the quiz!</h2>
+			<h3>{{ score > 5 ? 'Congratulations you success in the quiz' : 'Unfortunately you Fail in the quiz' }}</h3>
 			<p>Your score is {{ score }}/{{ questions.length }}</p>
 		</section>
 	</main>
@@ -157,7 +133,7 @@ h1 {
 	background-color: #382a4b;
 	padding: 1rem;
 	width: 100%;
-	max-width: 640px;
+	max-width: 870px;
 }
 
 .quiz-info {
@@ -176,11 +152,11 @@ h1 {
 	font-size: 1.25rem;
 }
 
-.options {
+.incorrect_answers {
 	margin-bottom: 1rem;
 }
 
-.option {
+.option ,select,.option2{
 	padding: 1rem;
 	display: block;
 	background-color: #271c36;
@@ -188,7 +164,14 @@ h1 {
 	border-radius: 0.5rem;
 	cursor: pointer;
 }
-
+select{
+	color: white;
+	border: none;
+	outline: none;
+	width: 500px;
+	background-color: #2d213f;
+	margin-bottom: 70px;
+}
 .option:hover {
 	background-color: #2d213f;
 }
@@ -231,12 +214,14 @@ button:disabled {
 	opacity: 0.5;
 }
 
-h2 {
+h2 ,h3{
 	font-size: 2rem;
 	margin-bottom: 2rem;
 	text-align: center;
 }
-
+h3{
+	font-size: 1.5rem;
+}
 p {
 	color: #8F8F8F;
 	font-size: 1.5rem;
